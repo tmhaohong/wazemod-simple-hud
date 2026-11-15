@@ -1,5 +1,60 @@
 menu "Waze HUD firmware"
 
+config WAZE_HUD_LCD_ILI9341
+    bool "Use 2.8-inch ILI9341 SPI LCD instead of T-Display-S3"
+    default n
+
+if WAZE_HUD_LCD_ILI9341
+
+config WAZE_HUD_LCD_SCLK
+    int "LCD SCLK GPIO (-1 = unconfigured)"
+    range -1 48
+    default -1
+
+config WAZE_HUD_LCD_MOSI
+    int "LCD MOSI GPIO (-1 = unconfigured)"
+    range -1 48
+    default -1
+
+config WAZE_HUD_LCD_CS
+    int "LCD CS GPIO (-1 = unconfigured)"
+    range -1 48
+    default -1
+
+config WAZE_HUD_LCD_DC
+    int "LCD DC GPIO (-1 = unconfigured)"
+    range -1 48
+    default -1
+
+config WAZE_HUD_LCD_RESET
+    int "LCD RESET GPIO (-1 = externally wired reset)"
+    range -1 48
+    default -1
+
+config WAZE_HUD_LCD_BACKLIGHT
+    int "LCD backlight GPIO (-1 = externally powered)"
+    range -1 48
+    default -1
+
+config WAZE_HUD_LCD_BACKLIGHT_ACTIVE_LOW
+    bool "Backlight is active low"
+    default n
+
+config WAZE_HUD_LCD_BGR
+    bool "LCD uses BGR color order"
+    default y
+
+config WAZE_HUD_LCD_INVERT
+    bool "Invert LCD colors"
+    default n
+
+endif
+
+config WAZE_HUD_TDISPLAY_PERIPHERALS
+    bool "Enable T-Display-S3 GPIO14 button and GPIO4 battery divider"
+    default y if !WAZE_HUD_LCD_ILI9341
+    default n
+
 config WAZE_HUD_MOCK_MODE
     bool "Enable renderer mock mode"
     default n

@@ -2,6 +2,7 @@
 
 #include <algorithm>
 #include <array>
+#include <cmath>
 #include <cstring>
 
 namespace waze_hud {
@@ -192,6 +193,15 @@ void Canvas::pixel(int x, int y, uint16_t color) {
     if (x >= 0 && y >= 0 && x < width_ && y < height_) pixels_[y * width_ + x] = color;
 }
 
+void Canvas::alphaMaskScaled(int x, int y, int width, int height,
+                             const assets::AlphaMask &mask, uint16_t color) {
+    if (!mask.alpha || !mask.width || !mask.height || width <= 0 || height <= 0) return;
+    for (int row = 0; row < height; ++row)
+        for (int column = 0; column < width; ++column)
+            alphaPixel(x + column, y + row, color,
+                       mask.alpha[(row * mask.height / height) * mask.width + column * mask.width / width]);
+}
+
 void Canvas::fillRect(int x, int y, int width, int height, uint16_t color) {
     x += translationX_;
     y += translationY_;
@@ -212,6 +222,22 @@ void Canvas::line(int x0, int y0, int x1, int y1, uint16_t color, int thickness)
         const int twice = 2 * error;
         if (twice >= dy) { error += dy; x0 += sx; }
         if (twice <= dx) { error += dx; y0 += sy; }
+    }
+}
+
+void Canvas::smoothLine(int x0, int y0, int x1, int y1, uint16_t color, float thickness) {
+    const float dx = x1 - x0, dy = y1 - y0;
+    const float lengthSquared = dx * dx + dy * dy;
+    const float edge = thickness / 2.0F + 0.5F;
+    const int pad = static_cast<int>(std::ceil(edge));
+    for (int y = std::max(0, std::min(y0, y1) - pad); y <= std::min(height_ - 1, std::max(y0, y1) + pad); ++y) {
+        for (int x = std::max(0, std::min(x0, x1) - pad); x <= std::min(width_ - 1, std::max(x0, x1) + pad); ++x) {
+            const float t = lengthSquared > 0 ?
+                std::clamp(((x - x0) * dx + (y - y0) * dy) / lengthSquared, 0.0F, 1.0F) : 0.0F;
+            const float px = x - (x0 + t * dx), py = y - (y0 + t * dy);
+            const float coverage = std::clamp(edge - std::sqrt(px * px + py * py), 0.0F, 1.0F);
+            if (coverage > 0) alphaPixel(x, y, color, static_cast<uint8_t>(std::lround(coverage * 255)));
+        }
     }
 }
 
@@ -239,6 +265,7 @@ void Canvas::triangle(int x0,int y0,int x1,int y1,int x2,int y2,uint16_t color) 
 }
 
 void Canvas::alphaPixel(int x, int y, uint16_t color, uint8_t alpha) {
+    if (textClipActive_ && (x < textClipLeft_ || x >= textClipRight_)) return;
     x += translationX_;
     y += translationY_;
     if (alpha == 0 || x < 0 || y < 0 || x >= width_ || y >= height_) return;
@@ -330,7 +357,7 @@ int Canvas::fontTextWidth(const char *utf8, const assets::BitmapFont &font) cons
 void Canvas::fontText(int x, int y, const char *utf8, const assets::BitmapFont &font,
                       uint16_t color, int maxWidth, bool centered) {
     if (!utf8 || !font.glyphs || !font.bitmap4bpp) return;
-    std::array<uint32_t, 64> codepoints{};
+    std::array<uint32_t, 256> codepoints{};
     std::size_t count = 0;
     const char *cursor = utf8;
     while (*cursor && count < codepoints.size()) codepoints[count++] = nextCodepoint(cursor);
@@ -373,6 +400,15 @@ void Canvas::fontText(int x, int y, const char *utf8, const assets::BitmapFont &
 
     for (std::size_t index = 0; index < visible; ++index) drawCodepoint(codepoints[index]);
     if (ellipsis) for (int index = 0; index < 3; ++index) drawCodepoint('.');
+}
+
+void Canvas::fontTextViewport(int x, int y, const char *utf8, const assets::BitmapFont &font,
+                              uint16_t color, int viewportWidth, int offset) {
+    textClipLeft_ = x;
+    textClipRight_ = x + viewportWidth;
+    textClipActive_ = true;
+    fontText(x - offset, y, utf8, font, color);
+    textClipActive_ = false;
 }
 
 int Canvas::textWidth(const char *utf8, int scale, int maxCells) const {

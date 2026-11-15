@@ -9,6 +9,8 @@ namespace waze_hud {
 constexpr std::size_t kMaxStreetUtf8Bytes = 160;
 constexpr std::size_t kMaxAlerts = 4;
 constexpr std::size_t kMaxLanes = 12;
+// Supported HLP lane directions are the six flags 0x01 through 0x20.
+constexpr uint8_t kLaneDirectionMask = 0x3F;
 
 enum class Maneuver : uint8_t {
     None = 0,

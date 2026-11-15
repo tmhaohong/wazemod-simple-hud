@@ -220,7 +220,7 @@ bool HlpDecoder::decodeState(const cJSON *root, HudState &state) {
                     || selectedItem->valuedouble < 0.0 || selectedItem->valuedouble > 255.0) continue;
             const int directions = static_cast<int>(directionsItem->valuedouble);
             const int selected = static_cast<int>(selectedItem->valuedouble);
-            if ((selected & ~directions) != 0) continue;
+            if ((directions & ~kLaneDirectionMask) != 0 || (selected & ~directions) != 0) continue;
             LaneState &target = decoded.lanes[decoded.laneCount++];
             target.directionMask = static_cast<uint8_t>(directions);
             target.selectedMask = static_cast<uint8_t>(selected);

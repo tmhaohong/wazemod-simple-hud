@@ -1,5 +1,8 @@
 # WazeHUD cho LILYGO T-Display S3
 
+**LCDWIKI ES3N28P 2.8-inch ILI9341V / ESP-IDF 6.1:** xem
+[cấu hình và lệnh build riêng](waze-hud/BUILD_ES3N28P.md).
+
 Firmware ESP-IDF biến **LILYGO T-Display S3** thành màn hình HUD Bluetooth nhỏ gọn cho Waze/HLP/1. Thiết bị nhận dữ liệu dẫn đường qua BLE, ưu tiên thông tin có thể đọc nhanh: tốc độ, biển giới hạn, hướng rẽ, làn đường, cảnh báo và tên đường.
 
 <p align="center">

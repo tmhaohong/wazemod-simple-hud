@@ -190,6 +190,12 @@ extern const BitmapFont kTextLarge;
 extern const BitmapFont kNumberSmall;
 extern const BitmapFont kNumberMedium;
 extern const BitmapFont kNumberLarge;
+extern const BitmapFont kCurrentSpeed;
+extern const BitmapFont kStreetName;
+extern const BitmapFont kNavigationText;
+extern const BitmapFont kWarningDistance;
+extern const BitmapFont kFooterText;
+extern const BitmapFont kRoundaboutExit;
 
 extern const SpeedLimitAssetSet kSpeedLimitAssets[];
 extern const std::size_t kSpeedLimitAssetCount;

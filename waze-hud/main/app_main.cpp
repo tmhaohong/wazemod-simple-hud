@@ -93,6 +93,9 @@ void orientationButtonTask(void *) {
 }
 
 esp_err_t startOrientationButton() {
+#if !CONFIG_WAZE_HUD_TDISPLAY_PERIPHERALS
+    return ESP_OK;
+#endif
     gpio_config_t config{};
     config.pin_bit_mask = 1ULL << static_cast<unsigned>(kOrientationButton);
     config.mode = GPIO_MODE_INPUT;
@@ -159,6 +162,10 @@ HudState baseMock() {
     state.lanes[1] = {0x01, 0x01};  // straight, selected
     state.lanes[2] = {0x30, 0x10};  // slight/right, selected slight-right
     setText(state.currentStreet, "Đường Phạm Văn Đồng");
+    setText(state.nextStreet, "đường số 8");
+    state.remainingMinutes = 8;
+    state.remainingMeters = 2300;
+    state.remainingKm = 2.3F;
     setText(state.eta, "20:01");
     state.clockUnixSeconds = 1787478627;
     state.timezoneOffsetMinutes = 420;
@@ -169,7 +176,7 @@ HudState baseMock() {
 void mockTask(void *) {
     ESP_LOGW(kTag, "Renderer mock mode enabled; BLE/HLP input is disabled");
     vTaskDelay(pdMS_TO_TICKS(1200));
-    constexpr uint32_t kScenarioCount = 11;
+    constexpr uint32_t kScenarioCount = 20;
     uint32_t scenario = 0;
     for (;;) {
         HudState state = baseMock();
@@ -185,11 +192,14 @@ void mockTask(void *) {
                 state.upcomingAlerts[1] = {AlertKind::SpeedDrop, 900, 40}; state.upcomingAlertCount = 2;
                 break;
             case 3:
+                state.maneuver = Maneuver::RoundaboutLeft; state.roundaboutExit = 1;
+                state.laneCount = 1; state.lanes[0] = {0x04, 0x04};
                 state.noPassingZone = true; state.noPassingRemainingM = 1250;
                 state.nearestAlert = {AlertKind::NoPassing, 0, 0};
                 break;
             case 4:
                 state.maneuver = Maneuver::RoundaboutRight; state.roundaboutExit = 3; state.maneuverDistanceM = 1200;
+                state.laneCount = 1; state.lanes[0] = {0x20, 0x20};
                 setText(state.currentStreet, "Võ Nguyên Giáp"); break;
             case 5:
                 state.speedKmh = 86; state.speedLimitKmh = 60; state.overSpeed = true;
@@ -197,10 +207,11 @@ void mockTask(void *) {
             case 6:
                 state = {}; break;
             case 7:
-                setText(state.currentStreet, "Đường Cách Mạng Tháng Tám, Phường Bến Thành");
+                setText(state.currentStreet, "Đường Cách Mạng Tháng Tám, Phường Bến Thành, Thành phố Hồ Chí Minh");
                 state.maneuver = Maneuver::ExitRight; state.maneuverDistanceM = 980; break;
             case 8:
                 state.maneuver = Maneuver::RoundaboutStraight; state.roundaboutExit = 2;
+                state.laneCount = 1; state.lanes[0] = {0x01, 0x01};
                 state.maneuverDistanceM = 420;
                 state.nearestAlert = {AlertKind::PhoneCamera, 650, 0};
                 break;
@@ -215,12 +226,70 @@ void mockTask(void *) {
                 state.upcomingAlerts[0] = {AlertKind::TrafficJam, 1350, 0, 2, 5};
                 state.upcomingAlertCount = 1;
                 break;
+            case 11:
+                state.navigationActive = false;
+                state.speedKmh = 48;
+                setText(state.currentStreet, "Market");
+                state.nearestAlert = {AlertKind::Police, 350, 0};
+                state.upcomingAlerts[0] = {AlertKind::SpeedCamera, 50, 0};
+                state.upcomingAlerts[1] = {AlertKind::Hazard, 200, 0};
+                state.upcomingAlertCount = 2;
+                break;
+            case 12:
+                state.navigationActive = false;
+                state.speedKmh = 0;
+                break;
+            case 13:
+                state.navigationActive = false;
+                state.speedKmh = 48; state.speedLimitKmh = 0;
+                break;
+            case 14:
+                state.maneuver = Maneuver::Right; state.maneuverDistanceM = 150;
+                state.laneCount = 0;
+                break;
+            case 15:
+                state.maneuver = Maneuver::Arrive; state.maneuverDistanceM = 0;
+                state.remainingMinutes = 0; state.remainingMeters = 0; state.remainingKm = 0;
+                state.laneCount = 0; state.nextStreet = {};
+                break;
+            case 16:
+                state.maneuver = Maneuver::Right; state.maneuverDistanceM = 150;
+                state.laneCount = 6;
+                for (unsigned bit = 0; bit < 6; ++bit) {
+                    const uint8_t direction = static_cast<uint8_t>(1U << bit);
+                    state.lanes[bit] = {direction, direction};
+                }
+                break;
+            case 17:
+                state.nearestAlert = {AlertKind::Police, -1, 0};
+                state.upcomingAlerts[0] = {AlertKind::SpeedDrop, 100, 40};
+                state.upcomingAlerts[1] = {AlertKind::Hazard, 0, 0};
+                state.upcomingAlertCount = 2;
+                state.maneuverDistanceM = -1;
+                break;
+            case 18:
+                setText(state.nextStreet, "Đường Nguyễn Thị Minh Khai, Phường Bến Thành, Thành phố Hồ Chí Minh - đi thẳng qua giao lộ đến trung tâm");
+                state.maneuver = Maneuver::Left;
+                state.maneuverDistanceM = 2400;
+                state.remainingMinutes = 125; state.remainingMeters = 123400; state.remainingKm = 123.4F;
+                state.eta = {};
+                break;
+            case 19:
+                state.navigationActive = false;
+                state.speedKmh = 128; state.speedLimitKmh = 80;
+                state.nearestAlert = {AlertKind::TrafficJam, 420, 0, 4, 18};
+                state.upcomingAlerts[0] = {AlertKind::SpeedDrop, 800, 60};
+                state.upcomingAlerts[1] = {AlertKind::Railway, 1400, 0};
+                state.upcomingAlertCount = 2;
+                break;
         }
         HudStateStore::instance().publish(state);
         ESP_LOGI(kTag, "Mock renderer scenario %lu",
                  static_cast<unsigned long>(scenario % kScenarioCount));
+        const uint32_t dwellMs = scenario % kScenarioCount == 7 || scenario % kScenarioCount == 18
+            ? 12000 : 5000;
         ++scenario;
-        vTaskDelay(pdMS_TO_TICKS(5000));
+        vTaskDelay(pdMS_TO_TICKS(dwellMs));
     }
 }
 #endif

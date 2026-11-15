@@ -15,10 +15,13 @@ public:
     void pixel(int x, int y, uint16_t color);
     void fillRect(int x, int y, int width, int height, uint16_t color);
     void line(int x0, int y0, int x1, int y1, uint16_t color, int thickness = 1);
+    void smoothLine(int x0, int y0, int x1, int y1, uint16_t color, float thickness);
     void circle(int centerX, int centerY, int radius, uint16_t color, int thickness = 1);
     void fillCircle(int centerX, int centerY, int radius, uint16_t color);
     void triangle(int x0, int y0, int x1, int y1, int x2, int y2, uint16_t color);
     void alphaMask(int x, int y, const assets::AlphaMask &mask, uint16_t color);
+    void alphaMaskScaled(int x, int y, int width, int height,
+                         const assets::AlphaMask &mask, uint16_t color);
     void colorBitmap(int x, int y, const assets::ColorBitmap &bitmap);
     void colorBitmapScaled(int x, int y, int width, int height,
                            const assets::ColorBitmap &bitmap);
@@ -29,6 +32,8 @@ public:
     int fontTextWidth(const char *utf8, const assets::BitmapFont &font) const;
     void fontText(int x, int y, const char *utf8, const assets::BitmapFont &font,
                   uint16_t color, int maxWidth = -1, bool centered = false);
+    void fontTextViewport(int x, int y, const char *utf8, const assets::BitmapFont &font,
+                          uint16_t color, int viewportWidth, int offset);
 
     int width() const { return width_; }
     int height() const { return height_; }
@@ -41,6 +46,9 @@ private:
     int height_;
     int translationX_{0};
     int translationY_{0};
+    int textClipLeft_{0};
+    int textClipRight_{0};
+    bool textClipActive_{false};
 };
 
 }  // namespace waze_hud

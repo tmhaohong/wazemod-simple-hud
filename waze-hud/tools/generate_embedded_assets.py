@@ -11,6 +11,7 @@ from dataclasses import dataclass
 from collections import deque
 from pathlib import Path
 import re
+import argparse
 import unicodedata
 
 from PIL import Image, ImageDraw, ImageFont
@@ -315,6 +316,35 @@ def emit_color_bitmap(name: str, source: Path, size: int,
     return declaration, body
 
 
+def font_specs():
+    fonts = OUTPUT / "fonts"
+    return (
+        ("TextSmall", fonts / "BarlowCondensed-SemiBold.ttf", 10, TEXT_CODEPOINTS),
+        ("TextMedium", fonts / "BarlowCondensed-SemiBold.ttf", 18, TEXT_CODEPOINTS),
+        ("TextLarge", fonts / "BarlowCondensed-SemiBold.ttf", 20, TEXT_CODEPOINTS),
+        ("NumberSmall", fonts / "BarlowCondensed-Bold.ttf", 12, NUMBER_CODEPOINTS),
+        ("NumberMedium", fonts / "BarlowCondensed-Bold.ttf", 26, NUMBER_CODEPOINTS),
+        ("NumberLarge", fonts / "BarlowCondensed-Bold.ttf", 62, NUMBER_CODEPOINTS),
+        ("CurrentSpeed", fonts / "BarlowCondensed-Regular.ttf", 50, NUMBER_CODEPOINTS),
+        ("StreetName", fonts / "BarlowCondensed-SemiBold.ttf", 26, TEXT_CODEPOINTS),
+        ("NavigationText", fonts / "BarlowCondensed-SemiBold.ttf", 15, TEXT_CODEPOINTS),
+        ("WarningDistance", fonts / "BarlowCondensed-SemiBold.ttf", 13, TEXT_CODEPOINTS),
+        ("FooterText", fonts / "BarlowCondensed-SemiBold.ttf", 12, TEXT_CODEPOINTS),
+        ("RoundaboutExit", fonts / "BarlowCondensed-Bold.ttf", 14, NUMBER_CODEPOINTS),
+    )
+
+
+def refresh_fonts():
+    # Preserve all checked-in image assets when their original source pack is absent.
+    target = OUTPUT / "generated_assets.cpp"
+    source = target.read_text()
+    start = source.index("alignas(4) static const uint8_t kTextSmallBitmap[]")
+    end = source.index("}  // namespace waze_hud::assets", start)
+    fonts = "\n".join(emit_font(*spec)[1] for spec in font_specs())
+    target.write_text(source[:start] + fonts + "\n" + source[end:])
+    print("Updated embedded Barlow Condensed fonts; image assets preserved")
+
+
 def main() -> None:
     missing = []
     for filename in MANEUVERS.values():
@@ -326,9 +356,9 @@ def main() -> None:
     for filename in TRAFFIC_JAM_ASSETS.values():
         if not (SOURCE / filename).is_file():
             missing.append(filename)
-    for filename in ("font_number.ttf", "font_text.otf"):
-        if not (SOURCE / "fonts" / filename).is_file():
-            missing.append(filename)
+    for _, path, _, _ in font_specs():
+        if not path.is_file():
+            missing.append(str(path))
     if not (SOURCE / "App" / "boot_icon.png").is_file():
         missing.append("App/boot_icon.png")
     if not (SOURCE / "speedLimit" / "no_speed.png").is_file():
@@ -399,15 +429,7 @@ def main() -> None:
         + "sizeof(kSpeedLimitAssets) / sizeof(kSpeedLimitAssets[0]);\n"
     )
 
-    font_specs = (
-        ("TextSmall", SOURCE / "fonts" / "font_text.otf", 10, TEXT_CODEPOINTS),
-        ("TextMedium", SOURCE / "fonts" / "font_text.otf", 16, TEXT_CODEPOINTS),
-        ("TextLarge", SOURCE / "fonts" / "font_text.otf", 22, TEXT_CODEPOINTS),
-        ("NumberSmall", SOURCE / "fonts" / "font_number.ttf", 13, NUMBER_CODEPOINTS),
-        ("NumberMedium", SOURCE / "fonts" / "font_number.ttf", 27, NUMBER_CODEPOINTS),
-        ("NumberLarge", SOURCE / "fonts" / "font_number.ttf", 64, NUMBER_CODEPOINTS),
-    )
-    for name, path, size, codepoints in font_specs:
+    for name, path, size, codepoints in font_specs():
         declaration, body = emit_font(name, path, size, codepoints)
         declarations.append(declaration)
         bodies.append(body)
@@ -477,4 +499,7 @@ namespace waze_hud::assets {
 
 
 if __name__ == "__main__":
-    main()
+    parser = argparse.ArgumentParser()
+    parser.add_argument("--fonts-only", action="store_true")
+    args = parser.parse_args()
+    refresh_fonts() if args.fonts_only else main()

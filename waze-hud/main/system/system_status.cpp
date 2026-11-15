@@ -5,6 +5,7 @@
 #include "esp_adc/adc_cali_scheme.h"
 #include "esp_adc/adc_oneshot.h"
 #include "esp_log.h"
+#include "sdkconfig.h"
 #include "freertos/FreeRTOS.h"
 #include "freertos/portmacro.h"
 #include <algorithm>
@@ -88,6 +89,10 @@ SystemStatus &SystemStatus::instance() {
 }
 
 esp_err_t SystemStatus::init() {
+#if !CONFIG_WAZE_HUD_TDISPLAY_PERIPHERALS
+    ESP_LOGI(kTag, "Battery ADC disabled for non-T-Display board");
+    return ESP_OK;
+#endif
     adc_oneshot_unit_init_cfg_t unitConfig{};
     unitConfig.unit_id = kBatteryAdcUnit;
     unitConfig.ulp_mode = ADC_ULP_MODE_DISABLE;

@@ -23,7 +23,10 @@ constexpr gpio_num_t kCs = GPIO_NUM_6;
 constexpr gpio_num_t kDc = GPIO_NUM_7;
 constexpr gpio_num_t kWr = GPIO_NUM_8;
 constexpr gpio_num_t kRd = GPIO_NUM_9;
-constexpr int kDataPins[8] = {39, 40, 41, 42, 45, 46, 47, 48};
+constexpr gpio_num_t kDataPins[8] = {
+    GPIO_NUM_39, GPIO_NUM_40, GPIO_NUM_41, GPIO_NUM_42,
+    GPIO_NUM_45, GPIO_NUM_46, GPIO_NUM_47, GPIO_NUM_48
+};
 
 struct InitCommand {
     uint8_t command;
@@ -110,7 +113,7 @@ esp_err_t DisplayDriver::init() {
 
     esp_lcd_panel_dev_config_t panelConfig{};
     panelConfig.reset_gpio_num = kReset;
-    panelConfig.rgb_endian = LCD_RGB_ENDIAN_RGB;
+    panelConfig.rgb_ele_order = LCD_RGB_ELEMENT_ORDER_RGB;
     panelConfig.bits_per_pixel = 16;
     esp_lcd_panel_handle_t panel = nullptr;
     ESP_RETURN_ON_ERROR(esp_lcd_new_panel_st7789(io, &panelConfig, &panel), kTag, "ST7789 driver creation failed");
@@ -140,7 +143,6 @@ esp_err_t DisplayDriver::init() {
     channel.gpio_num = kBacklight;
     channel.speed_mode = LEDC_LOW_SPEED_MODE;
     channel.channel = LEDC_CHANNEL_0;
-    channel.intr_type = LEDC_INTR_DISABLE;
     channel.timer_sel = LEDC_TIMER_0;
     channel.duty = 0;
     ESP_RETURN_ON_ERROR(ledc_channel_config(&channel), kTag, "backlight channel failed");

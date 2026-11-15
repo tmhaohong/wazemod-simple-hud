@@ -13,3 +13,5 @@ sdkconfig.35**
 build-**
 artifact/
 sdkconfig.**
+!waze-hud/sdkconfig.es3n28p.defaults
+.DS_Store
