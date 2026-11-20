@@ -1,0 +1,48 @@
+name: Attach firmware to release
+
+# Chạy khi tạo GitHub Release (hoặc chạy tay, nhập tag có sẵn).
+on:
+  release:
+    types: [published]
+  workflow_dispatch:
+    inputs:
+      tag:
+        description: "Tag của release cần đính kèm firmware"
+        required: true
+
+permissions:
+  contents: write
+
+jobs:
+  upload-firmware:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Chọn thư mục firmware mới nhất
+        id: pick
+        run: |
+          dir=$(ls -d firmware/WazeHUD-ES3N28P-production-*/ | sort | tail -n 1)
+          dir=${dir%/}
+          echo "dir=$dir" >> "$GITHUB_OUTPUT"
+          echo "Dùng $dir"
+
+      - name: Kiểm tra checksum
+        working-directory: ${{ steps.pick.outputs.dir }}
+        run: sha256sum -c SHA256SUMS.txt
+
+      - name: Đóng gói asset
+        run: |
+          mkdir -p out
+          cp "${{ steps.pick.outputs.dir }}/WazeHUD-ES3N28P-production.bin" out/
+          cp "${{ steps.pick.outputs.dir }}/SHA256SUMS.txt" out/
+          cp "${{ steps.pick.outputs.dir }}/README.md" out/FIRMWARE_README.md
+          (cd "${{ steps.pick.outputs.dir }}" && zip -q ../../out/WazeHUD-ES3N28P-production.zip \
+            WazeHUD-ES3N28P-production.bin SHA256SUMS.txt README.md)
+          ls -l out
+
+      - name: Upload vào release
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          TAG: ${{ github.event.release.tag_name || inputs.tag }}
+        run: gh release upload "$TAG" out/* --clobber --repo "$GITHUB_REPOSITORY"

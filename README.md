@@ -100,7 +100,7 @@ Nguồn pin: <https://www.lcdwiki.com/2.8inch_ESP32-S3_Display>. Board không c�
 
 ### Flash firmware dựng sẵn
 
-Thư mục [firmware/](firmware/) chứa bản production mới nhất (`WazeHUD-ES3N28P-production-2026-11-17`) gồm file BIN gộp, `SHA256SUMS.txt` và README riêng. Kiểm tra checksum rồi flash tại địa chỉ `0x0`:
+Tải file BIN/ZIP từ trang **Releases** của repo (workflow [release.yml](.github/workflows/release.yml) tự đính kèm firmware khi tạo release). Thư mục [firmware/](firmware/) cũng chứa bản production mới nhất (`WazeHUD-ES3N28P-production-2026-11-17`) gồm file BIN gộp, `SHA256SUMS.txt` và README riêng. Kiểm tra checksum rồi flash tại địa chỉ `0x0`:
 
 ```sh
 python -m esptool --chip esp32s3 --port /dev/cu.usbmodem3141201 --baud 460800 \
