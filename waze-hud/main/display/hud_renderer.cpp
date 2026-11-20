@@ -98,58 +98,88 @@ void drawTurnFallback(Canvas &canvas, int x, int y, Maneuver maneuver) {
 }
 
 // Original procedural lane style, with the six HLP flags from the lane reference.
-void drawLaneArrowHead(Canvas &canvas, int x, int y, int dx, int dy, uint16_t color, float thickness) {
-    constexpr int size = 3;
-    if (std::abs(dx) >= std::abs(dy)) {
+void drawLaneArrowHead(Canvas &canvas, int x, int y, int dx, int dy, uint16_t color,
+                       float thickness, int size) {
+    const auto line = [&](int x0, int y0, int x1, int y1, uint16_t c, float width) {
+        canvas.smoothLine(x0, y + static_cast<int>(std::lround((y0 - y) * 1.2F)),
+                          x1, y + static_cast<int>(std::lround((y1 - y) * 1.2F)), c, width);
+    };
+    if (dx != 0 && dy != 0) {
+        // Orient both wings along the diagonal shaft instead of snapping the
+        // head to a horizontal or vertical direction. The same Y stretch as
+        // the shaft is applied by line() above.
+        const float length = std::sqrt(static_cast<float>(dx * dx + dy * dy));
+        const float ux = dx / length, uy = dy / length;
+        for (int side : {-1, 1}) {
+            const int wingX = x + static_cast<int>(std::lround(-4 * ux - side * size * uy));
+            const int wingY = y + static_cast<int>(std::lround(-4 * uy + side * size * ux));
+            line(x, y, wingX, wingY, color, thickness);
+        }
+    } else if (std::abs(dx) >= std::abs(dy)) {
         const int sign = dx >= 0 ? 1 : -1;
-        canvas.smoothLine(x, y, x - sign * size, y - size, color, thickness);
-        canvas.smoothLine(x, y, x - sign * size, y + size, color, thickness);
+        line(x, y, x - sign * size, y - size, color, thickness);
+        line(x, y, x - sign * size, y + size, color, thickness);
     } else {
         const int sign = dy >= 0 ? 1 : -1;
-        canvas.smoothLine(x, y, x - size, y - sign * size, color, thickness);
-        canvas.smoothLine(x, y, x + size, y - sign * size, color, thickness);
+        line(x, y, x - size, y - sign * size, color, thickness);
+        line(x, y, x + size, y - sign * size, color, thickness);
     }
 }
 
 void drawLane(Canvas &canvas, int x, int y, int branchWidth, const LaneState &lane, uint16_t selectedColor) {
+    if (!lane.directionMask) {
+        // Preserve an unknown lane's position without inventing a direction.
+        canvas.fontText(x - 5, y + 12, "?", assets::kTextSmall, colors::Muted, 10, true);
+        return;
+    }
     constexpr float thickness = 2.4F;
-    canvas.smoothLine(x, y + 32, x, y + 15, lane.selectedMask ? selectedColor : colors::Muted,
-                      thickness);
+    // At 11–12 lanes, the head needs a smaller wing span to stay clear of
+    // the separator. Keep the normal head size for wider columns.
+    const int headSize = branchWidth <= 3 ? 2 : 3;
+    const auto scaledY = [y](int value) { return y + static_cast<int>(std::lround((value - y) * 1.2F)); };
+    const auto line = [&](int x0, int y0, int x1, int y1, uint16_t c, float width) {
+        canvas.smoothLine(x0, scaledY(y0), x1, scaledY(y1), c, width);
+    };
+    // Paint full inactive paths before selected paths. A shared stem colored
+    // from selectedMask alone would extend green above a selected horizontal
+    // turn's elbow into the inactive straight branch.
     for (int pass = 0; pass < 2; ++pass) {
         for (unsigned bit = 0; bit < 6; ++bit) {
             const unsigned flag = 1U << bit;
             const bool selected = (lane.selectedMask & flag) != 0;
             if (!(lane.directionMask & flag) || selected != (pass != 0)) continue;
             const auto color = selected ? selectedColor : colors::Muted;
+            const int junction = flag == 0x04 || flag == 0x20 ? 18 : 15;
+            line(x, y + 32, x, y + junction, color, thickness);
             int endX = x, endY = y + 3;
             switch (flag) {
                 case 0x02: endX -= branchWidth; endY = y + 5; break;
                 case 0x04:
-                    endX -= branchWidth; endY = y + 12;
-                    canvas.smoothLine(x, y + 15, x, endY, color, thickness);
-                    canvas.smoothLine(x, endY, endX, endY, color, thickness);
-                    drawLaneArrowHead(canvas, endX, endY, -1, 0, color, thickness);
+                    endX -= branchWidth; endY = y + 18;
+                    line(x, endY, endX, endY, color, thickness);
+                    drawLaneArrowHead(canvas, endX, scaledY(endY), -1, 0, color, thickness, headSize);
                     continue;
                 case 0x08:
                     // Up, around, and down: U-turn, not another left branch.
-                    endX -= branchWidth; endY = y + 21;
-                    canvas.smoothLine(x, y + 15, x, y + 7, color, thickness);
-                    canvas.smoothLine(x, y + 7, x - branchWidth / 2, y + 3, color, thickness);
-                    canvas.smoothLine(x - branchWidth / 2, y + 3, endX, y + 7, color, thickness);
-                    canvas.smoothLine(endX, y + 7, endX, endY, color, thickness);
-                    drawLaneArrowHead(canvas, endX, endY, 0, 1, color, thickness);
+                    // Reserve space for the downward head and antialiasing
+                    // inside this lane, clear of the preceding separator.
+                    endX -= std::max(2, branchWidth - 2); endY = y + 21;
+                    line(x, y + 15, x, y + 7, color, thickness);
+                    line(x, y + 7, (x + endX) / 2, y + 3, color, thickness);
+                    line((x + endX) / 2, y + 3, endX, y + 7, color, thickness);
+                    line(endX, y + 7, endX, endY, color, thickness);
+                    drawLaneArrowHead(canvas, endX, scaledY(endY), 0, 1, color, thickness, headSize);
                     continue;
                 case 0x10: endX += branchWidth; endY = y + 5; break;
                 case 0x20:
-                    endX += branchWidth; endY = y + 12;
-                    canvas.smoothLine(x, y + 15, x, endY, color, thickness);
-                    canvas.smoothLine(x, endY, endX, endY, color, thickness);
-                    drawLaneArrowHead(canvas, endX, endY, 1, 0, color, thickness);
+                    endX += branchWidth; endY = y + 18;
+                    line(x, endY, endX, endY, color, thickness);
+                    drawLaneArrowHead(canvas, endX, scaledY(endY), 1, 0, color, thickness, headSize);
                     continue;
                 default: break;
             }
-            canvas.smoothLine(x, y + 15, endX, endY, color, thickness);
-            drawLaneArrowHead(canvas, endX, endY, endX - x, endY - y - 15, color, thickness);
+            line(x, y + 15, endX, endY, color, thickness);
+            drawLaneArrowHead(canvas, endX, scaledY(endY), endX - x, endY - y - 15, color, thickness, headSize);
         }
     }
 }
@@ -382,7 +412,7 @@ void HudRenderer::renderSpeedSide(Canvas &canvas, int speedKmh, bool overspeed, 
     char speedStr[12];
     std::snprintf(speedStr, sizeof(speedStr), "%d", std::clamp(speedKmh, 0, 999));
     const uint16_t color = overspeed ? colors::Red : colors::White;
-    canvas.fontText(centerX - 45, centerY - 22, speedStr, assets::kCurrentSpeed, color, 90, true);
+    canvas.fontText(centerX - 45, centerY - 26, speedStr, assets::kCurrentSpeed, color, 90, true);
     canvas.fontText(centerX - 30, centerY + 18, "km/h", assets::kTextSmall, colors::Muted, 60, true);
 }
 
@@ -559,13 +589,13 @@ void HudRenderer::renderNavigation(Canvas &canvas, const HudState &state,
         const int startX = 164 + (152 - laneWidth * laneCount) / 2;
         for (std::size_t lane = 0; lane < laneCount; ++lane) {
             const int x = startX + lane * laneWidth;
-            // 30px arrow centered vertically in the 56px direction section.
-            drawLane(canvas, x + laneWidth / 2, directionsTop + 10,
+            // Lane geometry is 20% taller, centered in the existing direction section.
+            drawLane(canvas, x + laneWidth / 2, directionsTop + 12,
                      std::max(2, laneWidth / 2 - 3), state.lanes[lane], colors::rgb565(66, 220, 112));
             if (lane + 1 < laneCount) {
                 const int separatorX = x + laneWidth;
-                for (int y = directionsTop + 8; y < directionsTop + 48; y += 7)
-                    canvas.line(separatorX, y, separatorX, std::min(y + 3, directionsTop + 47),
+                for (int y = directionsTop + 10; y < directionsTop + 58; y += 7)
+                    canvas.line(separatorX, y, separatorX, std::min(y + 3, directionsTop + 57),
                                 colors::Muted);
             }
         }
@@ -582,9 +612,37 @@ void HudRenderer::renderNavigation(Canvas &canvas, const HudState &state,
     canvas.fontText(218, 220, arrival, assets::kFooterText, colors::Foreground, 94, true);
 }
 
+void HudRenderer::renderOverspeedBorder() {
+    if (!overspeedPulseActive_) return;
+    const uint64_t elapsed = static_cast<uint64_t>(esp_timer_get_time() / 1000) - overspeedPulseEpochMs_;
+    // A smooth 1.4-second pulse; only the perimeter is tinted so the HUD stays legible.
+    const float pulse = 0.18F + 0.82F * (0.5F + 0.5F * std::cos((elapsed % 1400) * 6.2831853F / 1400));
+    const auto tint = [&](int x, int y, float opacity) {
+        auto &pixel = buffer_[y * layout::Width + x];
+        const int alpha = static_cast<int>(opacity * 255);
+        const int inverse = 255 - alpha;
+        const int red = (31 * alpha + ((pixel >> 11) & 31) * inverse + 127) / 255;
+        const int green = (((pixel >> 5) & 63) * inverse + 127) / 255;
+        const int blue = ((pixel & 31) * inverse + 127) / 255;
+        pixel = static_cast<uint16_t>((red << 11) | (green << 5) | blue);
+    };
+    for (int depth = 0; depth < 8; ++depth) {
+        const float opacity = pulse * (depth < 3 ? 0.95F : (8 - depth) * 0.12F);
+        const int right = layout::Width - 1 - depth, bottom = layout::Height - 1 - depth;
+        for (int x = depth; x <= right; ++x) {
+            tint(x, depth, opacity); tint(x, bottom, opacity);
+        }
+        for (int y = depth + 1; y < bottom; ++y) {
+            tint(depth, y, opacity); tint(right, y, opacity);
+        }
+    }
+}
+
 void HudRenderer::render(const HudState &state, const DeviceSettings &settings,
                          const SystemStatusSnapshot &systemStatus) {
-    const bool changed = firstFrame_ || marqueeActive_ ||
+    const bool pulseWanted = state.connected && state.hasProducerState && !systemStatus.visible &&
+                             isOverspeed(state, settings);
+    const bool changed = firstFrame_ || marqueeActive_ || overspeedPulseActive_ || pulseWanted ||
         state.connected != previous_.connected ||
         state.hasProducerState != previous_.hasProducerState ||
         state.speedKmh != previous_.speedKmh ||
@@ -615,6 +673,10 @@ void HudRenderer::render(const HudState &state, const DeviceSettings &settings,
         settings.revision != previousSettings_.revision;
 
     if (!changed) return;
+
+    if (pulseWanted && !overspeedPulseActive_)
+        overspeedPulseEpochMs_ = static_cast<uint64_t>(esp_timer_get_time() / 1000);
+    overspeedPulseActive_ = pulseWanted;
 
     if (firstFrame_ || settings.revision != previousSettings_.revision) {
         auto &display = DisplayDriver::instance();
@@ -660,12 +722,14 @@ void HudRenderer::render(const HudState &state, const DeviceSettings &settings,
 
     if (!state.navigationActive) {
         renderFreeDriving(canvas, state, settings);
+        renderOverspeedBorder();
         DisplayDriver::instance().drawRegion(layout::Full, buffer_);
         return;
     }
 
     if (layout::Height == 240) {
         renderNavigation(canvas, state, settings);
+        renderOverspeedBorder();
         DisplayDriver::instance().drawRegion(layout::Full, buffer_);
         return;
     }
@@ -735,6 +799,7 @@ void HudRenderer::render(const HudState &state, const DeviceSettings &settings,
         }
     }
 
+    renderOverspeedBorder();
     DisplayDriver::instance().drawRegion(layout::Full, buffer_);
 }
 

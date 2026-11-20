@@ -226,3 +226,91 @@ including all final UI changes. Verified flash hashes, BLE advertising as
 `WazeHUD`, LCD first frame, and stable 10-second boot. The device now runs live
 BLE/HLP firmware. Logs: `build-production-final-flash.log` and
 `build-production-final-boot.log`.
+
+2026-11-16 mock iteration: current-speed Regular font increased from 50 to
+60 px (+20%). Lane geometry, including arrowhead height, is stretched vertically
+20%, and separator height grows from 40 to 48 px. The taller lane group remains
+centered in the direction row; stroke width stays 2.4 px. Mock flash/boot logs:
+`build-taller-lanes-flash.log`, `build-taller-lanes-boot.log`.
+The exported 2026-11-15 production package remains the prior approved version.
+
+Lane group moved down 6 px, including separators, to reduce the gap above the
+footer. Overspeed now animates a red perimeter (3 px border plus 5 px inner
+glow) on a smooth 1.4-second cycle. It follows the existing speed-limit plus
+configured offset threshold and stops immediately below it, without a limit,
+on disconnect, or on the utility screen. Animation drives redraws even when
+input is unchanged. Host checks verify both driving modes, unchanged center
+content during the pulse, and threshold/stop behavior. Mock logs:
+`build-overspeed-pulse-flash.log`, `build-overspeed-pulse-boot.log`.
+
+Fixed slight-left/right lane arrowheads: diagonal vectors previously entered
+the horizontal/vertical head branches, producing sideways heads. Diagonal
+heads now derive their wings from the shaft direction and perpendicular,
+using the same vertical stretch as the shaft. Cardinal arrows retain their
+geometry. `previews/lane_reference.png` renders the user's comparison pattern
+(slight-left + inactive straight, straight, slight-right + inactive straight).
+Host tests check both wings and absence of the old above-tip wing pixels.
+
+Horizontal left/right lane branches (0x04/0x20) retain their original full
+width (12 px at the usual lane width). Their horizontal arms and heads are
+lowered 8 raster pixels to expose other branches above. Arrowhead size and all
+other lane directions retain their current geometry.
+
+2026-11-16 production release: created merged binary and ZIP under
+`firmware/WazeHUD-ES3N28P-production-2026-11-16/` and verified all constituent
+images at their merged offsets. Flashed the same production build with
+`idf.py flash` (mock disabled), verified write hashes, LCD first frame, BLE
+advertising as `WazeHUD`, and stable 10-second boot. Logs:
+`build-production-20261116.log`, `build-production-20261116-flash.log`,
+`build-production-20261116-boot.log`. Merged image flashes at 0x0; the included
+README documents the command and NVS reset behavior of the merged image.
+
+Standalone 0x04/0x20 shape correction: shared stem now stops at the lowered
+elbow for a lone horizontal turn, removing the upward spur. Mixed lanes retain
+their shared stem and other branches. Both mirrored cases pass pixel checks.
+Rebuilt/flashed production and refreshed the dated 2026-11-16 BIN, ZIP, and
+SHA256SUMS together. Logs: `build-standalone-turns.log`,
+`build-standalone-turns-flash.log`, `build-standalone-turns-boot.log`.
+
+2026-11-17 mixed-lane validation: `[[5,4],[33,0]]` decodes as selected left
+plus inactive straight in lane 1, and inactive straight/right in lane 2.
+The shared stem used to be colored green up to the common junction above the
+lowered horizontal elbow, bleeding into the inactive straight branch. Each
+branch now paints its complete stem/path, inactive first and selected last,
+so green stops at the selected path's junction. No changes to bit meanings.
+The host harness runs the real HLP decoder and renderer for this exact case
+and validates mirrored, straight-only, none/both-selected, and redraw cases.
+Preview: `previews/two_lane_masks_corrected.png`.
+Production build and merge passed; firmware is under
+`firmware/WazeHUD-ES3N28P-production-2026-11-17/`, with matching ZIP/checksum.
+Build log: `build-lane-mask-validation.log`. No serial port was detected, so
+this update has not been flashed or verified on the physical device.
+
+The subsequent exhaustive review supersedes that validation snapshot:
+`tools/check_lane_arrows.py` covers all 728 supported direction/selection pairs
+at counts 1–12 (8,736 render cases), all 65,536 byte-mask decoder pairs, malformed
+and capacity cases. It also checks mirror geometry, unique selection states,
+highlight containment, and arrow/separator boundaries. Found/fixed U-turn head
+overflow and narrow-column slight-right overflow. The real decoder/renderer
+regression harness verifies unknown slots at every position in counts 1–12.
+
+Lane-count correction: every array entry now retains its slot, including zero,
+unsupported or malformed direction guidance. Supported direction bits survive;
+selected bits are intersected with allowed known directions. A gray `?` marks
+unknown direction. Changed incomplete guidance emits a warning for diagnosis.
+This fixes reproduced four-to-three and two-to-one cases, but the original field
+payload was unavailable, and firmware cannot restore lanes omitted upstream.
+Review evidence: `previews/lane_review/REVIEW.md`, `report.json`, and contact sheets.
+Updated production BIN/ZIP/checksum under the existing 2026-11-17 release folder.
+Build/flash/boot logs: `build-lane-count-review.log`,
+`build-lane-count-review-flash.log`, `build-lane-count-review-boot.log`.
+
+This reviewed production build was flashed with verified hashes. Serial logs
+confirmed LCD first frame, BLE advertising as WazeHUD, and stable 10-second boot.
+Live navigation guidance still requires user testing.
+
+Warning-distance text increased from 13 to 14 px for the requested additional
+10% increase (rounded to the nearest integer pixel). Rendering regression
+checks pass. Updated production BIN/ZIP/checksum in the 2026-11-17 folder.
+Logs: `build-warning-distance.log`, `build-warning-distance-flash.log`,
+`build-warning-distance-boot.log`.

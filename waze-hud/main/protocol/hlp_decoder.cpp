@@ -206,24 +206,41 @@ bool HlpDecoder::decodeState(const cJSON *root, HudState &state) {
     const cJSON *lanes = cJSON_GetObjectItemCaseSensitive(root, "lan");
     if (cJSON_IsArray(lanes)) {
         const cJSON *lane = nullptr;
+        unsigned unknownLanes = 0;
+        unsigned sanitizedLanes = 0;
         cJSON_ArrayForEach(lane, lanes) {
             if (decoded.laneCount >= kMaxLanes) break;
-            if (!cJSON_IsArray(lane) || cJSON_GetArraySize(lane) != 2) continue;
+            // Each array entry is a physical lane position. Never compact the
+            // list when one lane has incomplete or unsupported guidance.
+            LaneState &target = decoded.lanes[decoded.laneCount++];
+            if (!cJSON_IsArray(lane) || cJSON_GetArraySize(lane) != 2) {
+                ++unknownLanes;
+                ++sanitizedLanes;
+                continue;
+            }
             const cJSON *directionsItem = cJSON_GetArrayItem(lane, 0);
             const cJSON *selectedItem = cJSON_GetArrayItem(lane, 1);
-            if (!cJSON_IsNumber(directionsItem) || !cJSON_IsNumber(selectedItem)
-                    || !std::isfinite(directionsItem->valuedouble)
-                    || !std::isfinite(selectedItem->valuedouble)
-                    || std::floor(directionsItem->valuedouble) != directionsItem->valuedouble
-                    || std::floor(selectedItem->valuedouble) != selectedItem->valuedouble
-                    || directionsItem->valuedouble <= 0.0 || directionsItem->valuedouble > 255.0
-                    || selectedItem->valuedouble < 0.0 || selectedItem->valuedouble > 255.0) continue;
-            const int directions = static_cast<int>(directionsItem->valuedouble);
-            const int selected = static_cast<int>(selectedItem->valuedouble);
-            if ((directions & ~kLaneDirectionMask) != 0 || (selected & ~directions) != 0) continue;
-            LaneState &target = decoded.lanes[decoded.laneCount++];
-            target.directionMask = static_cast<uint8_t>(directions);
-            target.selectedMask = static_cast<uint8_t>(selected);
+            const auto byteMask = [](const cJSON *item) {
+                return cJSON_IsNumber(item) && std::isfinite(item->valuedouble) &&
+                       std::floor(item->valuedouble) == item->valuedouble &&
+                       item->valuedouble >= 0 && item->valuedouble <= 255;
+            };
+            const bool validDirections = byteMask(directionsItem);
+            const bool validSelected = byteMask(selectedItem);
+            const int directions = validDirections ? static_cast<int>(directionsItem->valuedouble) : 0;
+            const int selected = validSelected ? static_cast<int>(selectedItem->valuedouble) : 0;
+            target.directionMask = static_cast<uint8_t>(directions & kLaneDirectionMask);
+            target.selectedMask = static_cast<uint8_t>(selected & target.directionMask);
+            if (!target.directionMask) ++unknownLanes;
+            if (!validDirections || !validSelected || directions != target.directionMask ||
+                selected != target.selectedMask) ++sanitizedLanes;
+        }
+        ESP_LOGD(kTag, "Lane slots received=%d retained=%u unknown=%u sanitized=%u",
+                 cJSON_GetArraySize(lanes), decoded.laneCount, unknownLanes, sanitizedLanes);
+        if ((unknownLanes || sanitizedLanes) &&
+            (decoded.laneCount != state.laneCount || decoded.lanes != state.lanes)) {
+            ESP_LOGW(kTag, "Lane guidance incomplete: retained=%u unknown=%u sanitized=%u",
+                     decoded.laneCount, unknownLanes, sanitizedLanes);
         }
     }
 

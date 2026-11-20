@@ -1,0 +1,17 @@
+{
+  "valid_masks": 728,
+  "lane_count_cases": 8736,
+  "bounds_failures": 0,
+  "support_failures": 0,
+  "color_failures": 0,
+  "selected_core_failures": 0,
+  "unselected_highlight_leaks": 0,
+  "mirror_support_failures": 0,
+  "mirror_max_channel_delta": 1,
+  "duplicate_direction_sets": 0,
+  "duplicate_selection_states": 0,
+  "decode_pairs": 65536,
+  "decode_preserved_pairs": 65536,
+  "decode_failures": 0,
+  "malformed_and_capacity_checks": true
+}

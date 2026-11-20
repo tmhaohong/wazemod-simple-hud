@@ -130,6 +130,7 @@ struct AlertState {
 };
 
 struct LaneState {
+    // Zero means the lane exists but its direction is unknown; retain its slot.
     uint8_t directionMask{0};
     uint8_t selectedMask{0};
 

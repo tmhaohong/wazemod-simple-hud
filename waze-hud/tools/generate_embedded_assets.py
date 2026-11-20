@@ -325,10 +325,10 @@ def font_specs():
         ("NumberSmall", fonts / "BarlowCondensed-Bold.ttf", 12, NUMBER_CODEPOINTS),
         ("NumberMedium", fonts / "BarlowCondensed-Bold.ttf", 26, NUMBER_CODEPOINTS),
         ("NumberLarge", fonts / "BarlowCondensed-Bold.ttf", 62, NUMBER_CODEPOINTS),
-        ("CurrentSpeed", fonts / "BarlowCondensed-Regular.ttf", 50, NUMBER_CODEPOINTS),
+        ("CurrentSpeed", fonts / "BarlowCondensed-Regular.ttf", 60, NUMBER_CODEPOINTS),
         ("StreetName", fonts / "BarlowCondensed-SemiBold.ttf", 26, TEXT_CODEPOINTS),
         ("NavigationText", fonts / "BarlowCondensed-SemiBold.ttf", 15, TEXT_CODEPOINTS),
-        ("WarningDistance", fonts / "BarlowCondensed-SemiBold.ttf", 13, TEXT_CODEPOINTS),
+        ("WarningDistance", fonts / "BarlowCondensed-SemiBold.ttf", 14, TEXT_CODEPOINTS),
         ("FooterText", fonts / "BarlowCondensed-SemiBold.ttf", 12, TEXT_CODEPOINTS),
         ("RoundaboutExit", fonts / "BarlowCondensed-Bold.ttf", 14, NUMBER_CODEPOINTS),
     )

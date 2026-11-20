@@ -15,10 +15,11 @@ public:
     esp_err_t init();
     void render(const HudState &state, const DeviceSettings &settings,
                 const SystemStatusSnapshot &systemStatus);
-    bool animationActive() const { return marqueeActive_; }
+    bool animationActive() const { return marqueeActive_ || overspeedPulseActive_; }
 
 private:
     void renderWaiting(Canvas &canvas);
+    void renderOverspeedBorder();
     void renderFreeDriving(Canvas &canvas, const HudState &state, const DeviceSettings &settings);
     void renderDrivingSummary(Canvas &canvas, const HudState &state,
                               const DeviceSettings &settings, int streetTop);
@@ -40,6 +41,8 @@ private:
     SystemStatusSnapshot previousSystemStatus_{};
     bool firstFrame_{true};
     bool marqueeActive_{false};
+    bool overspeedPulseActive_{false};
+    uint64_t overspeedPulseEpochMs_{0};
     std::array<std::array<char, 256>, 2> marqueeText_{};
     std::array<uint64_t, 2> marqueeEpochMs_{};
 };
